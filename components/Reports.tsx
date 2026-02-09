@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Theme } from '../types';
 import { GlassCard } from './ui/GlassCard';
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
-import { Calendar, TrendingUp, Layers } from 'lucide-react';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie } from 'recharts';
+import { Calendar, TrendingUp, Layers, PieChart as PieChartIcon } from 'lucide-react';
 
 interface ReportsProps {
   transactions: Transaction[];
@@ -10,6 +10,15 @@ interface ReportsProps {
 }
 
 type Period = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMESTERLY' | 'YEARLY';
+
+interface ChartDataPoint {
+  key: string;
+  name: string;
+  income: number;
+  expense: number;
+  balance: number;
+  sortTime: number;
+}
 
 export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
   const [period, setPeriod] = useState<Period>('MONTHLY');
@@ -88,10 +97,22 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
       acc[key].balance = acc[key].income - acc[key].expense;
       
       return acc;
-    }, {} as Record<string, { key: string; name: string; income: number; expense: number; balance: number; sortTime: number }>);
+    }, {} as Record<string, ChartDataPoint>);
 
-    return Object.values(grouped).sort((a, b) => a.sortTime - b.sortTime);
+    return (Object.values(grouped) as ChartDataPoint[]).sort((a, b) => a.sortTime - b.sortTime);
   }, [transactions, period]);
+
+  const categoryData = useMemo(() => {
+    const expenses = transactions.filter(t => t.type === 'expense');
+    const grouped = expenses.reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(grouped)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+  }, [transactions]);
 
   const totals = useMemo(() => {
     return processedData.reduce((acc, curr) => ({
@@ -106,6 +127,8 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
   const tooltipBg = theme === 'dark' ? '#1e293b' : '#ffffff';
   const tooltipBorder = theme === 'dark' ? '#334155' : '#e2e8f0';
   const tooltipText = theme === 'dark' ? '#f8fafc' : '#1e293b';
+
+  const PIE_COLORS = ['#0891b2', '#db2777', '#7c3aed', '#ea580c', '#16a34a', '#ca8a04', '#2563eb'];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -182,7 +205,7 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
         </ResponsiveContainer>
       </GlassCard>
 
-      {/* Breakdown Grid */}
+      {/* Breakdown Grid: Net Balance + Pie Chart */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
          {/* Balance Trend */}
          <GlassCard className="h-[350px]">
@@ -209,44 +232,86 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Detailed Summary Table */}
-        <GlassCard className="h-[350px] overflow-hidden flex flex-col">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
-            Détails de la Période
-          </h3>
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 rounded-l-lg">Période</th>
-                  <th className="px-4 py-3 text-right">Recettes</th>
-                  <th className="px-4 py-3 text-right">Dépenses</th>
-                  <th className="px-4 py-3 text-right rounded-r-lg">Solde</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-300">
-                {processedData.slice().reverse().map((item) => (
-                  <tr key={item.key} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{item.name}</td>
-                    <td className="px-4 py-3 text-right text-cyan-600 dark:text-cyan-400 font-medium">+{item.income.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-pink-600 dark:text-pink-400 font-medium">-{item.expense.toLocaleString()}</td>
-                    <td className={`px-4 py-3 text-right font-bold ${item.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                      {item.balance > 0 ? '+' : ''}{item.balance.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
-             <span>Total Visible</span>
-             <span className={totals.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
-               {totals.balance > 0 ? '+' : ''}{totals.balance.toLocaleString()} DA
-             </span>
-          </div>
+        {/* Expenses Pie Chart (New) */}
+        <GlassCard className="h-[350px]">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <PieChartIcon size={18} className="text-orange-600 dark:text-orange-400" />
+                Répartition des Dépenses
+            </h3>
+            <div className="w-full h-full flex justify-center pb-8">
+                {categoryData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={categoryData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {categoryData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '8px', color: tooltipText }}
+                                formatter={(value: number) => [`${value.toLocaleString()} DA`, 'Montant']}
+                            />
+                            <Legend 
+                                layout="vertical" 
+                                verticalAlign="middle" 
+                                align="right"
+                                iconType="circle"
+                                wrapperStyle={{ fontSize: '12px', color: textColor }} 
+                            />
+                        </PieChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex items-center justify-center text-slate-400 text-sm">Aucune dépense enregistrée</div>
+                )}
+            </div>
         </GlassCard>
       </div>
+
+      {/* Detailed Summary Table */}
+      <GlassCard className="overflow-hidden flex flex-col">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+        <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
+        Détails de la Période
+        </h3>
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+            <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800">
+            <tr>
+                <th className="px-4 py-3 rounded-l-lg">Période</th>
+                <th className="px-4 py-3 text-right">Recettes</th>
+                <th className="px-4 py-3 text-right">Dépenses</th>
+                <th className="px-4 py-3 text-right rounded-r-lg">Solde</th>
+            </tr>
+            </thead>
+            <tbody className="text-slate-300">
+            {processedData.slice().reverse().map((item) => (
+                <tr key={item.key} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{item.name}</td>
+                <td className="px-4 py-3 text-right text-cyan-600 dark:text-cyan-400 font-medium">+{item.income.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-pink-600 dark:text-pink-400 font-medium">-{item.expense.toLocaleString()}</td>
+                <td className={`px-4 py-3 text-right font-bold ${item.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                    {item.balance > 0 ? '+' : ''}{item.balance.toLocaleString()}
+                </td>
+                </tr>
+            ))}
+            </tbody>
+        </table>
+        </div>
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+            <span>Total Visible</span>
+            <span className={totals.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                {totals.balance > 0 ? '+' : ''}{totals.balance.toLocaleString()} DA
+            </span>
+        </div>
+      </GlassCard>
     </div>
   );
 };
