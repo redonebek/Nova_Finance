@@ -75,7 +75,7 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
       }
     };
 
-    const grouped = transactions.reduce<Record<string, ReportDataPoint>>((acc, t) => {
+    const grouped = transactions.reduce((acc, t) => {
       const { key, name, sortTime } = getData(t);
       
       if (!acc[key]) {
@@ -99,9 +99,9 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
       entry.balance = entry.income - entry.expense;
       
       return acc;
-    }, {});
+    }, {} as Record<string, ReportDataPoint>);
 
-    return (Object.values(grouped)).sort((a, b) => a.sortTime - b.sortTime);
+    return (Object.values(grouped) as ReportDataPoint[]).sort((a, b) => a.sortTime - b.sortTime);
   }, [transactions, period]);
 
   const categoryData = useMemo(() => {
