@@ -113,11 +113,11 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
 
     return Object.entries(grouped)
         .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+        .sort((a, b) => (b.value as number) - (a.value as number));
   }, [transactions]);
 
   const totals = useMemo(() => {
-    return processedData.reduce((acc, curr) => ({
+    return processedData.reduce<{ income: number; expense: number; balance: number }>((acc, curr) => ({
       income: acc.income + curr.income,
       expense: acc.expense + curr.expense,
       balance: acc.balance + curr.balance
