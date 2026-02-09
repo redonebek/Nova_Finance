@@ -11,7 +11,7 @@ interface ReportsProps {
 
 type Period = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMESTERLY' | 'YEARLY';
 
-interface ChartDataPoint {
+interface ReportDataPoint {
   key: string;
   name: string;
   income: number;
@@ -75,7 +75,7 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
       }
     };
 
-    const grouped = transactions.reduce((acc, t) => {
+    const grouped = transactions.reduce<Record<string, ReportDataPoint>>((acc, t) => {
       const { key, name, sortTime } = getData(t);
       
       if (!acc[key]) {
@@ -89,17 +89,19 @@ export const Reports: React.FC<ReportsProps> = ({ transactions, theme }) => {
         };
       }
       
+      const entry = acc[key];
+
       if (t.type === 'income') {
-        acc[key].income += t.amount;
+        entry.income += t.amount;
       } else {
-        acc[key].expense += t.amount;
+        entry.expense += t.amount;
       }
-      acc[key].balance = acc[key].income - acc[key].expense;
+      entry.balance = entry.income - entry.expense;
       
       return acc;
-    }, {} as Record<string, ChartDataPoint>);
+    }, {});
 
-    return (Object.values(grouped) as ChartDataPoint[]).sort((a, b) => a.sortTime - b.sortTime);
+    return (Object.values(grouped)).sort((a, b) => a.sortTime - b.sortTime);
   }, [transactions, period]);
 
   const categoryData = useMemo(() => {
